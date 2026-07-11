@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/tracker.dart';
+import '../widgets/weekly_progress_chart.dart';
+import '../models/number_entry.dart';
 import '../widgets/tracker_detail_scaffold.dart';
 
 import '../services/tracker_database.dart';
@@ -23,11 +26,19 @@ class NumberTrackerScreen extends StatefulWidget {
 		String _unit = '';
 
 		bool _isLoading = true;
+		Timer? _midnightTimer;
+		List<NumberEntry> _entries = [];
+		
+		final List<Duration> _weeklyProgress = List.filled(
+		  7,
+		  Duration.zero,
+		);
 		
 	@override
 	void initState() {
 	  super.initState();
 	  _loadSettings();
+	  _scheduleMidnightRefresh();
 	}
 
 	Future<void> _loadSettings() async {
@@ -54,8 +65,87 @@ class NumberTrackerScreen extends StatefulWidget {
 	  setState(() {
 	    _isLoading = false;
 	  });
+	  await _loadEntries();
 	}
+	
+	Future<void> _loadEntries() async {
+		  final trackerId = widget.tracker.id;
 
+		  if (trackerId == null) return;
+
+		  final entries = await _database.getTodayNumberEntries(trackerId);
+
+		  if (!mounted) return;
+
+		  double total = 0;
+		  for (final entry in entries) {
+		    total += entry.value;
+		  }
+
+		  _weeklyProgress[DateTime.now().weekday - 1] =
+		      Duration(minutes: total.round());
+
+		  setState(() {
+		    _entries = entries;
+		    _currentValue = total;
+		  });
+		}
+	
+	void _scheduleMidnightRefresh() {
+		  _midnightTimer?.cancel();
+
+		  final now = DateTime.now();
+
+		  final nextMidnight = DateTime(
+		    now.year,
+		    now.month,
+		    now.day + 1,
+		  );
+
+		  final duration = nextMidnight.difference(now);
+
+		  _midnightTimer = Timer(duration, () async {
+		    if (!mounted) return;
+
+		    await _loadSettings();
+		    await _loadEntries();
+
+		    _scheduleMidnightRefresh();
+		  });
+		}
+	
+	Future<void> _deleteEntry(NumberEntry entry) async {
+		  final shouldDelete = await showDialog<bool>(
+		    context: context,
+		    builder: (context) {
+		      return AlertDialog(
+			title: const Text('Delete Entry'),
+			content: const Text(
+			  'Are you sure you want to delete this entry?',
+			),
+			actions: [
+			  TextButton(
+			    onPressed: () => Navigator.pop(context, false),
+			    child: const Text('Cancel'),
+			  ),
+			  FilledButton(
+			    onPressed: () => Navigator.pop(context, true),
+			    child: const Text('Delete'),
+			  ),
+			],
+		      );
+		    },
+		  );
+
+		  if (shouldDelete != true) {
+		    return;
+		  }
+
+		  await _database.deleteNumberEntry(entry.id!);
+
+		  await _loadEntries();
+		  await _saveSettings();
+		}
 	Future<void> _saveSettings() async {
 	  final trackerId = widget.tracker.id;
 
@@ -132,11 +222,18 @@ class NumberTrackerScreen extends StatefulWidget {
 
 		  if (result == null) return;
 
-		  setState(() {
-		    _currentValue += result.$1;
-		  });
+		  await _database.createNumberEntry(
+			  trackerId: widget.tracker.id!,
+			  value: result.$1,
+			  description: result.$2,
+			);
 
-		  await _saveSettings();
+			setState(() {
+			  _currentValue += result.$1;
+			});
+
+			await _saveSettings();
+			await _loadEntries();
 
 		  // Description will be stored once we implement
 		  // the Number Entry log.
@@ -214,6 +311,12 @@ class NumberTrackerScreen extends StatefulWidget {
 
 			await _saveSettings();
 		}
+		
+	@override
+	void dispose() {
+	  _midnightTimer?.cancel();
+	  super.dispose();
+	}
 
 	  @override
 	  Widget build(BuildContext context) {
@@ -318,15 +421,46 @@ class NumberTrackerScreen extends StatefulWidget {
 		  "Today's Entries",
 		  style: TextStyle(fontWeight: FontWeight.bold),
 		),
+		
+		const SizedBox(height: 24),
+
+		const Text(
+		  'Weekly Progress',
+		  style: TextStyle(fontWeight: FontWeight.bold),
+		),
 
 		const SizedBox(height: 8),
 
-		const Center(
-		  child: Text(
-		    'Entry log coming next',
-		    style: TextStyle(color: Colors.grey),
-		  ),
+		WeeklyProgressChart(
+		  dailyDurations: _weeklyProgress,
+		  todayIndex: DateTime.now().weekday - 1,
 		),
+
+		const SizedBox(height: 8),
+
+		_entries.isEmpty
+		    ? const Center(
+			child: Text('No entries yet.'),
+		      )
+		    : Column(
+			children: _entries.map((entry) {
+			  return ListTile(
+			    contentPadding: EdgeInsets.zero,
+			    title: Text(
+			      _unit.isEmpty
+				  ? entry.value.toString()
+				  : '${entry.value} $_unit',
+			    ),
+			    subtitle: entry.description == null
+				? null
+				: Text(entry.description!),
+			    trailing: IconButton(
+				  icon: const Icon(Icons.delete),
+				  onPressed: () => _deleteEntry(entry),
+				),
+			  );
+			}).toList(),
+		      ),
 		],
 	      ),
 	    ),

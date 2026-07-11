@@ -39,24 +39,30 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
   final _database = TrackerDatabase.instance;
   TimeSession? _runningSession;
   List<TimeSession> _completedSessions = [];
-  List<Duration> _weeklyDurations = List.filled(7, Duration.zero);
+  final List<Duration> _weeklyDurations = List.filled(
+	  7,
+	  Duration.zero,
+	);
   TimeTrackerGoal? _goal;
   Timer? _timer;
+  Timer? _midnightTimer;
   bool _isLoading = true;
   bool _isChangingSession = false;
   bool _showAllSessions = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
+	void initState() {
+	  super.initState();
+	  _loadData();
+	  _scheduleMidnightRefresh();
+	}
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+	void dispose() {
+	  _timer?.cancel();
+	  _midnightTimer?.cancel();
+	  super.dispose();
+	}
 
   Future<void> _loadData() async {
     final trackerId = widget.tracker.id;
@@ -87,12 +93,12 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
       _completedSessions = results[1] as List<TimeSession>;
       _goal = results[2] as TimeTrackerGoal?;
       final weeklyTotals = results[3] as Map<DateTime, Duration>;
-      _weeklyDurations = List.generate(
-        7,
-        (index) =>
-            weeklyTotals[startOfWeek.add(Duration(days: index))] ??
-            Duration.zero,
-      );
+
+	for (int i = 0; i < 7; i++) {
+	  _weeklyDurations[i] =
+	      weeklyTotals[startOfWeek.add(Duration(days: i))] ??
+	      Duration.zero;
+	}
       _isLoading = false;
     });
 
@@ -100,6 +106,46 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
       _startTimerUpdates();
     }
   }
+  
+  void _scheduleMidnightRefresh() {
+	  _midnightTimer?.cancel();
+
+	  final now = DateTime.now();
+
+	  final nextMidnight = DateTime(
+	    now.year,
+	    now.month,
+	    now.day + 1,
+	  );
+
+	  final duration = nextMidnight.difference(now);
+
+	  _midnightTimer = Timer(duration, () async {
+		  if (!mounted) return;
+
+		  await _splitRunningSessionAtMidnight();
+
+		  await _loadData();
+
+		  _scheduleMidnightRefresh();
+		});
+	}
+	
+	Future<void> _splitRunningSessionAtMidnight() async {
+		  if (_runningSession == null) {
+		  return;
+		}
+
+		final newSession = await _database.splitRunningSessionAtMidnight(
+		  _runningSession!.id!,
+		);
+
+		if (!mounted) return;
+
+		setState(() {
+		  _runningSession = newSession;
+		});
+		}
 
   void _startTimerUpdates() {
     _timer?.cancel();

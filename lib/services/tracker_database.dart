@@ -305,6 +305,65 @@ class TrackerDatabase {
       whereArgs: [sessionId],
     );
   }
+  
+  Future<TimeSession> splitRunningSessionAtMidnight(int sessionId) async {
+	  final database = await this.database;
+
+	  final sessions = await database.query(
+	    _timeSessionsTable,
+	    where: 'id = ?',
+	    whereArgs: [sessionId],
+	    limit: 1,
+	  );
+
+	  if (sessions.isEmpty) {
+	    throw Exception('Running session not found.');
+	  }
+
+	  final row = sessions.first;
+
+	  final trackerId = row['tracker_id'] as int;
+	  final startedAt = DateTime.parse(row['started_at'] as String);
+
+	  final midnight = DateTime(
+	    startedAt.year,
+	    startedAt.month,
+	    startedAt.day + 1,
+	  );
+
+	  // Finish yesterday's session
+	  await database.update(
+	    _timeSessionsTable,
+	    {
+	      'ended_at': midnight.toIso8601String(),
+	      'duration_seconds': midnight.difference(startedAt).inSeconds,
+	    },
+	    where: 'id = ?',
+	    whereArgs: [sessionId],
+	  );
+
+	  // Start today's session immediately
+	  final newId = await database.insert(
+	    _timeSessionsTable,
+	    {
+	      'tracker_id': trackerId,
+	      'session_date': _formatDate(midnight),
+	      'duration_seconds': 0,
+	      'is_manual': 0,
+	      'started_at': midnight.toIso8601String(),
+	      'ended_at': null,
+	    },
+	  );
+
+	  return TimeSession(
+	    id: newId,
+	    trackerId: trackerId,
+	    date: DateTime(midnight.year, midnight.month, midnight.day),
+	    duration: Duration.zero,
+	    isManual: false,
+	    startedAt: midnight,
+	  );
+	}
 
   Future<void> createManualTimeSession({
     required int trackerId,

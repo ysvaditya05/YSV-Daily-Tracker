@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../models/tracker.dart';
+import '../models/number_entry.dart';
 import '../models/time_session.dart';
 import '../models/time_tracker_goal.dart';
 
@@ -17,9 +18,13 @@ class TrackerDatabase {
 
   static const _databaseName = 'ysv_daily.db';
   static const _trackersTable = 'trackers';
-  static const _timeSessionsTable = 'time_sessions';
-  static const _temporaryTimeSessionsTable = 'time_sessions_new';
-  static const _timeTrackerGoalsTable = 'time_tracker_goals';
+
+	static const _timeSessionsTable = 'time_sessions';
+	static const _temporaryTimeSessionsTable = 'time_sessions_new';
+
+	static const _timeTrackerGoalsTable = 'time_tracker_goals';
+
+	static const _numberEntriesTable = 'number_entries';
 
   sqflite.Database? _database;
   Future<sqflite.Database>? _databaseFuture;
@@ -40,7 +45,7 @@ class TrackerDatabase {
     final path = join(documentsPath, _databaseName);
     final openedDatabase = await sqflite.openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -65,7 +70,8 @@ class TrackerDatabase {
       )
     ''');
     await _createTimeSessionsTable(database);
-    await _createTimeTrackerGoalsTable(database);
+	await _createTimeTrackerGoalsTable(database);
+	await _createNumberEntriesTable(database);
   }
 
   Future<void> _upgrade(
@@ -111,6 +117,9 @@ class TrackerDatabase {
         'ALTER TABLE $_temporaryTimeSessionsTable RENAME TO $_timeSessionsTable',
       );
     }
+    if (oldVersion < 5) {
+	  await _createNumberEntriesTable(database);
+	}
   }
 
   Future<void> _createTimeSessionsTable(
@@ -140,6 +149,21 @@ class TrackerDatabase {
       )
     ''');
   }
+  
+  Future<void> _createNumberEntriesTable(
+	  sqflite.Database database,
+	) async {
+	  await database.execute('''
+	    CREATE TABLE $_numberEntriesTable (
+	      id INTEGER PRIMARY KEY AUTOINCREMENT,
+	      tracker_id INTEGER NOT NULL,
+	      entry_date TEXT NOT NULL,
+	      value REAL NOT NULL,
+	      created_at TEXT NOT NULL,
+	      description TEXT
+	    )
+	  ''');
+	}
 
   Future<Tracker> createTracker({
     required String name,
@@ -349,6 +373,50 @@ class TrackerDatabase {
 
     return TimeTrackerGoal.fromMap(maps.first);
   }
+  
+  Future<void> createNumberEntry({
+	  required int trackerId,
+	  required double value,
+	  String? description,
+	}) async {
+	  final now = DateTime.now();
+
+	  await (await database).insert(
+	    _numberEntriesTable,
+	    {
+	      'tracker_id': trackerId,
+	      'entry_date': _formatDate(now),
+	      'value': value,
+	      'created_at': now.toIso8601String(),
+	      'description': description,
+	    },
+	  );
+	}
+	Future<List<NumberEntry>> getTodayNumberEntries(
+		  int trackerId,
+		) async {
+		  final maps = await (await database).query(
+		    _numberEntriesTable,
+		    where: 'tracker_id = ? AND entry_date = ?',
+		    whereArgs: [
+		      trackerId,
+		      _formatDate(DateTime.now()),
+		    ],
+		    orderBy: 'created_at DESC',
+		  );
+
+		  return maps.map(NumberEntry.fromMap).toList();
+		}
+		
+	Future<void> deleteNumberEntry(
+		  int entryId,
+		) async {
+		  await (await database).delete(
+		    _numberEntriesTable,
+		    where: 'id = ?',
+		    whereArgs: [entryId],
+		  );
+		}
 
   String _formatDate(DateTime date) {
     final year = date.year.toString().padLeft(4, '0');

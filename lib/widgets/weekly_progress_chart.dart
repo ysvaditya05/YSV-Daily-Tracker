@@ -89,17 +89,17 @@ class WeeklyProgressChart extends StatelessWidget {
 			  mainAxisAlignment: MainAxisAlignment.spaceBetween,
 			  children: [
 			    Divider(
-			      color: Colors.grey.withOpacity(0.15),
+			      color: Colors.grey.withValues(alpha: 0.15),
 			      height: 1,
 			      thickness: 1,
 			    ),
 			    Divider(
-			      color: Colors.grey.withOpacity(0.15),
+			      color: Colors.grey.withValues(alpha: 0.15),
 			      height: 1,
 			      thickness: 1,
 			    ),
 			    Divider(
-			      color: Colors.grey.withOpacity(0.15),
+			      color: Colors.grey.withValues(alpha: 0.15),
 			      height: 1,
 			      thickness: 1,
 			    ),

@@ -18,9 +18,56 @@ class NumberTrackerScreen extends StatefulWidget {
 	
 		final _database = TrackerDatabase.instance;
 
-	  int _currentValue = 0;
-	  int? _dailyGoal;
-	  String _unit = '';
+	  double _currentValue = 0;
+		double? _dailyGoal;
+		String _unit = '';
+
+		bool _isLoading = true;
+		
+	@override
+	void initState() {
+	  super.initState();
+	  _loadSettings();
+	}
+
+	Future<void> _loadSettings() async {
+	  final trackerId = widget.tracker.id;
+
+	  if (trackerId == null) {
+	    setState(() {
+	      _isLoading = false;
+	    });
+	    return;
+	  }
+
+	  final settings =
+	      await _database.getNumberTrackerSettings(trackerId);
+
+	  if (!mounted) return;
+
+	  if (settings != null) {
+	    _currentValue = settings.currentValue;
+	    _dailyGoal = settings.dailyGoal;
+	    _unit = settings.unit;
+	  }
+
+	  setState(() {
+	    _isLoading = false;
+	  });
+	}
+
+	Future<void> _saveSettings() async {
+	  final trackerId = widget.tracker.id;
+
+	  if (trackerId == null) return;
+
+	  await _database.saveNumberTrackerSettings(
+	    trackerId: trackerId,
+	    currentValue: _currentValue,
+	    dailyGoal: _dailyGoal,
+	    unit: _unit,
+	  );
+	}
 	  
 	  Future<void> _setGoal() async {
 		  final controller = TextEditingController(
@@ -80,15 +127,22 @@ class NumberTrackerScreen extends StatefulWidget {
 
 		  if (result != null) {
 			  setState(() {
-			    _dailyGoal = result;
-			    _unit = unitController.text.trim();
-			  });
+				  _dailyGoal = result.toDouble();
+				  _unit = unitController.text.trim();
+				});
+
+			await _saveSettings();
 			}
 		}
 
 	  @override
 	  Widget build(BuildContext context) {
-    return TrackerDetailScaffold(
+		  if (_isLoading) {
+			  return const Center(
+			    child: CircularProgressIndicator(),
+			  );
+			}
+		    return TrackerDetailScaffold(
 	  tracker: widget.tracker,
 	  body: Padding(
 	    padding: const EdgeInsets.all(16),
@@ -152,7 +206,9 @@ class NumberTrackerScreen extends StatefulWidget {
 
 		  Text(
 			  _unit.isEmpty
-			      ? '$_currentValue'
+			      ? _currentValue.toStringAsFixed(
+				  _currentValue == _currentValue.roundToDouble() ? 0 : 1,
+				)
 			      : '$_currentValue $_unit',
 		    textAlign: TextAlign.center,
 		    style: Theme.of(context).textTheme.displaySmall,
@@ -165,13 +221,15 @@ class NumberTrackerScreen extends StatefulWidget {
 
 		      Expanded(
 		        child: FilledButton(
-				  onPressed: () {
-				    setState(() {
-				      if (_currentValue > 0) {
-					_currentValue--;
-				      }
-				    });
-				  },
+				  onPressed: () async {
+					  setState(() {
+					    if (_currentValue > 0) {
+					      _currentValue--;
+					    }
+					  });
+
+					  await _saveSettings();
+					},
 				  child: const Text('-'),
 				),
 		      ),
@@ -180,11 +238,13 @@ class NumberTrackerScreen extends StatefulWidget {
 
 		      Expanded(
 		        child: FilledButton(
-				  onPressed: () {
-				    setState(() {
-				      _currentValue++;
-				    });
-				  },
+				  onPressed: () async {
+					  setState(() {
+					    _currentValue++;
+					  });
+
+					  await _saveSettings();
+					},
 				  child: const Text('+'),
 				),
 		      ),

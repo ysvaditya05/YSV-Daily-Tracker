@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../models/tracker.dart';
 import '../models/number_entry.dart';
+import '../models/number_tracker_settings.dart';
 import '../models/time_session.dart';
 import '../models/time_tracker_goal.dart';
 
@@ -23,6 +24,7 @@ class TrackerDatabase {
 	static const _temporaryTimeSessionsTable = 'time_sessions_new';
 
 	static const _timeTrackerGoalsTable = 'time_tracker_goals';
+	static const _numberTrackerSettingsTable = 'number_tracker_settings';
 
 	static const _numberEntriesTable = 'number_entries';
 
@@ -45,7 +47,7 @@ class TrackerDatabase {
     final path = join(documentsPath, _databaseName);
     final openedDatabase = await sqflite.openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -72,6 +74,7 @@ class TrackerDatabase {
     await _createTimeSessionsTable(database);
 	await _createTimeTrackerGoalsTable(database);
 	await _createNumberEntriesTable(database);
+	await _createNumberTrackerSettingsTable(database);
   }
 
   Future<void> _upgrade(
@@ -117,6 +120,9 @@ class TrackerDatabase {
         'ALTER TABLE $_temporaryTimeSessionsTable RENAME TO $_timeSessionsTable',
       );
     }
+    if (oldVersion < 6) {
+	  await _createNumberTrackerSettingsTable(database);
+	}
     if (oldVersion < 5) {
 	  await _createNumberEntriesTable(database);
 	}
@@ -149,6 +155,20 @@ class TrackerDatabase {
       )
     ''');
   }
+  
+  Future<void> _createNumberTrackerSettingsTable(
+	  sqflite.Database database,
+	) async {
+	  await database.execute('''
+	    CREATE TABLE $_numberTrackerSettingsTable (
+	      id INTEGER PRIMARY KEY AUTOINCREMENT,
+	      tracker_id INTEGER NOT NULL UNIQUE,
+	      current_value REAL NOT NULL,
+	      daily_goal REAL,
+	      unit TEXT NOT NULL
+	    )
+	  ''');
+	}
   
   Future<void> _createNumberEntriesTable(
 	  sqflite.Database database,
@@ -416,6 +436,64 @@ class TrackerDatabase {
 		    where: 'id = ?',
 		    whereArgs: [entryId],
 		  );
+		}
+		
+	Future<void> saveNumberTrackerSettings({
+	  required int trackerId,
+	  required double currentValue,
+	  required double? dailyGoal,
+	  required String unit,
+	}) async {
+	  final database = await this.database;
+
+	  final existing = await database.query(
+	    _numberTrackerSettingsTable,
+	    where: 'tracker_id = ?',
+	    whereArgs: [trackerId],
+	    limit: 1,
+	  );
+
+	  final settings = NumberTrackerSettings(
+	    trackerId: trackerId,
+	    currentValue: currentValue,
+	    dailyGoal: dailyGoal,
+	    unit: unit,
+	  );
+
+	  if (existing.isEmpty) {
+	    await database.insert(
+	      _numberTrackerSettingsTable,
+	      settings.toMap(),
+	    );
+	  } else {
+	    await database.update(
+		  _numberTrackerSettingsTable,
+		  {
+		    'current_value': currentValue,
+		    'daily_goal': dailyGoal,
+		    'unit': unit,
+		  },
+		  where: 'tracker_id = ?',
+		  whereArgs: [trackerId],
+		);
+	  }
+	}
+	
+	Future<NumberTrackerSettings?> getNumberTrackerSettings(
+		  int trackerId,
+		) async {
+		  final maps = await (await database).query(
+		    _numberTrackerSettingsTable,
+		    where: 'tracker_id = ?',
+		    whereArgs: [trackerId],
+		    limit: 1
+		  );
+
+		  if (maps.isEmpty) {
+		    return null;
+		  }
+
+		  return NumberTrackerSettings.fromMap(maps.first);
 		}
 
   String _formatDate(DateTime date) {

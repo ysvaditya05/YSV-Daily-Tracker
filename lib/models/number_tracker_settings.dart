@@ -14,14 +14,13 @@ class NumberTrackerSettings {
   final String unit;
 
   Map<String, Object?> toMap() {
-    return {
-      'id': id,
-      'tracker_id': trackerId,
-      'current_value': currentValue,
-      'daily_goal': dailyGoal,
-      'unit': unit,
-    };
-  }
+	  return {
+	    'tracker_id': trackerId,
+	    'current_value': currentValue,
+	    'daily_goal': dailyGoal,
+	    'unit': unit,
+	  };
+	}
 
   factory NumberTrackerSettings.fromMap(Map<String, Object?> map) {
     return NumberTrackerSettings(

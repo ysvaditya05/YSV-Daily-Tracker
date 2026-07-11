@@ -1,46 +1,71 @@
 # YSV Daily Changelog
 
-## v0.1.0
+## v0.1.3
 
 ### Added
-- Created Flutter application shell.
-- Home screen.
+
+#### Core Application
+- Flutter application shell.
+- Home page.
 - Create Tracker page.
-- Four tracker types:
+- Four tracker categories:
   - Time
   - Number
   - Checklist
   - List
-- SQLite local database.
-- Persistent tracker storage.
+- Local SQLite database.
+- Persistent local storage.
 - Tracker detail pages.
+- Git version control.
+- GitHub repository.
+
+---
+
+### Tracker Management
+
+- Create unlimited trackers.
 - Alphabetical tracker ordering.
-- Duplicate tracker name validation (case-sensitive).
+- Duplicate tracker name validation.
 - Tracker deletion with confirmation dialog.
+- Persistent tracker storage between app launches.
+
+---
 
 ### Time Tracker
-- Running timer with Start / Stop controls.
-- Daily goal setting.
-- Goal history support (future-proofed).
+
+- Running timer.
+- Start / Stop session controls.
+- Daily goals.
+- Goal history architecture.
 - Daily progress calculation.
 - Progress bar against daily goal.
 - Manual session logging.
-- Session persistence.
-- Individual session deletion with confirmation.
-- Expand / collapse session list.
-- Weekly progress chart.
-- Adaptive Y-axis for weekly chart.
+- Manual session persistence.
+- Session deletion.
+- Expandable / collapsible session history.
+- Weekly progress graph.
+- Adaptive Y-axis.
 - Weekly total display.
-- Horizontal guide lines on weekly graph.
+- Horizontal graph guide lines.
+- Scrollable tracker page.
+- Automatic daily reset while preserving historical data.
 
-### UI Improvements
-- Improved spacing throughout the Time Tracker.
+---
+
+### User Interface
+
+- Cleaner spacing throughout the Time Tracker.
 - Single-line Daily Goal display.
 - Session separators.
-- Scrollable tracker page to prevent overflow.
-- Weekly chart integrated directly into the Time Tracker page.
+- Responsive scrolling layouts.
+- Weekly graph embedded within the tracker page.
 
-### Infrastructure
-- Local SQLite storage.
-- Git version control.
-- GitHub repository and version history.
+---
+
+### Project Infrastructure
+
+- Local-first architecture.
+- SQLite persistence.
+- Git repository.
+- GitHub backup.
+- Release APK generation.

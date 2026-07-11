@@ -295,25 +295,30 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
 	    _showAllSessions || _completedSessions.length <= 2
 		? _completedSessions
 		: _completedSessions.take(2).toList();
+	final weeklyTotal = _weeklyDurations.fold<Duration>(
+		  Duration.zero,
+		  (total, duration) => total + duration,
+		);
     return SingleChildScrollView(
 	  padding: const EdgeInsets.all(16),
 	  child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Daily Goal'),
-          if (goal == null) ...[
-            const Text('No goal set'),
-          ] else ...[
-            Text(_formatProgress(Duration(seconds: goal.dailyGoalSeconds))),
-          ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _setGoal,
-              child: const Text('Set Goal'),
-            ),
-          ),
-          const SizedBox(height: 32),
+          Text(
+		  goal == null
+		      ? 'Daily Goal: Not Set'
+		      : 'Daily Goal: ${_formatProgress(Duration(seconds: goal.dailyGoalSeconds))}',
+		  style: Theme.of(context).textTheme.titleMedium,
+		),
+
+		Align(
+		  alignment: Alignment.centerLeft,
+		  child: TextButton(
+		    onPressed: _setGoal,
+		    child: const Text('Set Goal'),
+		  ),
+		),
+          const SizedBox(height: 20),
           Text(
             _formatTimer(_runningDuration),
             textAlign: TextAlign.center,
@@ -331,7 +336,7 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
             onPressed: _isChangingSession ? null : _addManualSession,
             child: const Text('Add Manual Session'),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           const Text("Today's Progress"),
           Text(
             goal == null
@@ -347,7 +352,7 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
                   .toDouble(),
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -363,18 +368,23 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
 			else
 			  Column(
 			    children: displayedSessions.map((session) {
-			      return ListTile(
-				contentPadding: EdgeInsets.zero,
-				title: Text(
-				  session.isManual
-				      ? 'Manual • ${_formatProgress(session.duration)}'
-				      : '${_formatTime(session.startedAt!)} – ${_formatTime(session.endedAt!)}',
-				),
-				trailing: IconButton(
-				  icon: const Icon(Icons.delete),
-				  onPressed: () => _deleteSession(session),
-				),
-			      );
+			      return Column(
+				  children: [
+				    ListTile(
+				      contentPadding: EdgeInsets.zero,
+				      title: Text(
+					session.isManual
+					    ? 'Manual • ${_formatProgress(session.duration)}'
+					    : '${_formatTime(session.startedAt!)} – ${_formatTime(session.endedAt!)}',
+				      ),
+				      trailing: IconButton(
+					icon: const Icon(Icons.delete),
+					onPressed: () => _deleteSession(session),
+				      ),
+				    ),
+				    const Divider(height: 1),
+				  ],
+				);
 			    }).toList(),
 			  ),
 		  if (_completedSessions.length > 2)
@@ -399,12 +409,24 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
 			    ),
 			  ),
                 const SizedBox(height: 16),
-                const Text('Weekly Progress'),
-                const SizedBox(height: 8),
-                WeeklyProgressChart(
-                  dailyDurations: _weeklyDurations,
-                  todayIndex: now.weekday - 1,
-                ),
+                Column(
+			  crossAxisAlignment: CrossAxisAlignment.start,
+			  children: [
+			    const Text(
+			      'Weekly Progress',
+			      style: TextStyle(fontWeight: FontWeight.bold),
+			    ),
+			    Text(
+			      'This Week: ${_formatProgress(weeklyTotal)}',
+			      style: Theme.of(context).textTheme.bodySmall,
+			    ),
+			  ],
+			),
+			const SizedBox(height: 8),
+			WeeklyProgressChart(
+			  dailyDurations: _weeklyDurations,
+			  todayIndex: now.weekday - 1,
+			),
               ],
             ),
         ],

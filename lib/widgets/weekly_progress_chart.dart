@@ -80,50 +80,79 @@ class WeeklyProgressChart extends StatelessWidget {
 
 	      // ---------- GRAPH ----------
 	      Expanded(
-		child: Row(
-		  crossAxisAlignment: CrossAxisAlignment.stretch,
-		  children: List.generate(dailyDurations.length, (index) {
-		    final duration = dailyDurations[index];
+		  child: Stack(
+		    children: [
 
-		    final heightFactor = maximumDuration == Duration.zero
-		        ? 0.0
-		        : duration.inSeconds / maximumDuration.inSeconds;
-
-		    return Expanded(
-		      child: Padding(
-		        padding: const EdgeInsets.symmetric(horizontal: 4),
-		        child: Column(
-		          children: [
-		            Expanded(
-		              child: LayoutBuilder(
-		                builder: (context, constraints) {
-		                  return Align(
-		                    alignment: Alignment.bottomCenter,
-		                    child: Container(
-		                      width: 20,
-		                      height: constraints.maxHeight * heightFactor,
-		                      decoration: BoxDecoration(
-		                        color: index == todayIndex
-		                            ? colorScheme.primary
-		                            : colorScheme.primaryContainer,
-		                        borderRadius: const BorderRadius.vertical(
-		                          top: Radius.circular(4),
-		                        ),
-		                      ),
-		                    ),
-		                  );
-		                },
-		              ),
-		            ),
-		            const SizedBox(height: 8),
-		            Text(_dayLabels[index]),
-		          ],
-		        ),
+		      // Horizontal guide lines
+		      Positioned.fill(
+			child: Column(
+			  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+			  children: [
+			    Divider(
+			      color: Colors.grey.withOpacity(0.15),
+			      height: 1,
+			      thickness: 1,
+			    ),
+			    Divider(
+			      color: Colors.grey.withOpacity(0.15),
+			      height: 1,
+			      thickness: 1,
+			    ),
+			    Divider(
+			      color: Colors.grey.withOpacity(0.15),
+			      height: 1,
+			      thickness: 1,
+			    ),
+			  ],
+			),
 		      ),
-		    );
-		  }),
+
+		      Row(
+			crossAxisAlignment: CrossAxisAlignment.stretch,
+			children: List.generate(dailyDurations.length, (index) {
+			  final duration = dailyDurations[index];
+
+			  final heightFactor = maximumDuration == Duration.zero
+			      ? 0.0
+			      : duration.inSeconds / maximumDuration.inSeconds;
+
+			  return Expanded(
+			    child: Padding(
+			      padding: const EdgeInsets.symmetric(horizontal: 4),
+			      child: Column(
+				children: [
+				  Expanded(
+				    child: LayoutBuilder(
+				      builder: (context, constraints) {
+				        return Align(
+				          alignment: Alignment.bottomCenter,
+				          child: Container(
+				            width: 20,
+				            height: constraints.maxHeight * heightFactor,
+				            decoration: BoxDecoration(
+				              color: index == todayIndex
+				                  ? colorScheme.primary
+				                  : colorScheme.primaryContainer,
+				              borderRadius: const BorderRadius.vertical(
+				                top: Radius.circular(4),
+				              ),
+				            ),
+				          ),
+				        );
+				      },
+				    ),
+				  ),
+				  const SizedBox(height: 8),
+				  Text(_dayLabels[index]),
+				],
+			      ),
+			    ),
+			  );
+			}),
+		      ),
+		    ],
+		  ),
 		),
-	      ),
 	    ],
 	  ),
 	);

@@ -68,11 +68,59 @@ class NumberTrackerScreen extends StatefulWidget {
 	    unit: _unit,
 	  );
 	}
+	
+	Future<void> _showCustomValueDialog() async {
+		  final controller = TextEditingController();
+
+		  final result = await showDialog<double>(
+		    context: context,
+		    builder: (context) {
+		      return AlertDialog(
+			title: const Text('Add Custom Value'),
+			content: TextField(
+			  controller: controller,
+			  keyboardType: const TextInputType.numberWithOptions(
+			    decimal: true,
+			  ),
+			  decoration: InputDecoration(
+			    labelText: _unit.isEmpty ? 'Amount' : 'Amount ($_unit)',
+			  ),
+			),
+			actions: [
+			  TextButton(
+			    onPressed: () => Navigator.pop(context),
+			    child: const Text('Cancel'),
+			  ),
+			  FilledButton(
+			    onPressed: () {
+			      final value = double.tryParse(controller.text);
+
+			      if (value != null) {
+				Navigator.pop(context, value);
+			      }
+			    },
+			    child: const Text('Add'),
+			  ),
+			],
+		      );
+		    },
+		  );
+
+		  if (result == null) return;
+
+		  setState(() {
+		    _currentValue += result;
+		  });
+
+		  await _saveSettings();
+		}
 	  
 	  Future<void> _setGoal() async {
 		  final controller = TextEditingController(
-		    text: _dailyGoal?.toString() ?? '',
-		  );
+			  text: _dailyGoal == null
+			      ? ''
+			      : _dailyGoal!.toInt().toString(),
+			);
 		  final unitController = TextEditingController(
 			  text: _unit,
 			);
@@ -111,15 +159,19 @@ class NumberTrackerScreen extends StatefulWidget {
 			    child: const Text('Cancel'),
 			  ),
 			  FilledButton(
-			    onPressed: () {
-			      final value = int.tryParse(controller.text);
+				  onPressed: () {
+				    final text = controller.text.trim();
 
-			      if (value != null && value >= 0) {
-				Navigator.pop(context, value);
-			      }
-			    },
-			    child: const Text('Save'),
-			  ),
+				    final value = text.isEmpty
+					? _dailyGoal?.toInt() ?? 0
+					: int.tryParse(text);
+
+				    if (value != null && value >= 0) {
+				      Navigator.pop(context, value);
+				    }
+				  },
+				  child: const Text('Save'),
+				),
 			],
 		      );
 		    },
@@ -255,9 +307,9 @@ class NumberTrackerScreen extends StatefulWidget {
 		  const SizedBox(height: 16),
 
 		  OutlinedButton(
-		    onPressed: null,
-		    child: const Text('Add Custom Value'),
-		  ),
+			  onPressed: _showCustomValueDialog,
+			  child: const Text('Add Custom Value'),
+			),
 
 		],
 	      ),

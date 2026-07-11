@@ -70,21 +70,36 @@ class NumberTrackerScreen extends StatefulWidget {
 	}
 	
 	Future<void> _showCustomValueDialog() async {
-		  final controller = TextEditingController();
+		  final valueController = TextEditingController();
+		  final descriptionController = TextEditingController();
 
-		  final result = await showDialog<double>(
+		  final result = await showDialog<(double, String?)>(
 		    context: context,
 		    builder: (context) {
 		      return AlertDialog(
-			title: const Text('Add Custom Value'),
-			content: TextField(
-			  controller: controller,
-			  keyboardType: const TextInputType.numberWithOptions(
-			    decimal: true,
-			  ),
-			  decoration: InputDecoration(
-			    labelText: _unit.isEmpty ? 'Amount' : 'Amount ($_unit)',
-			  ),
+			title: const Text('Add Entry'),
+			content: Column(
+			  mainAxisSize: MainAxisSize.min,
+			  children: [
+			    TextField(
+			      controller: valueController,
+			      keyboardType: const TextInputType.numberWithOptions(
+				decimal: true,
+			      ),
+			      decoration: InputDecoration(
+				labelText: _unit.isEmpty
+				    ? 'Amount'
+				    : 'Amount ($_unit)',
+			      ),
+			    ),
+			    const SizedBox(height: 16),
+			    TextField(
+			      controller: descriptionController,
+			      decoration: const InputDecoration(
+				labelText: 'Description (optional)',
+			      ),
+			    ),
+			  ],
 			),
 			actions: [
 			  TextButton(
@@ -93,10 +108,19 @@ class NumberTrackerScreen extends StatefulWidget {
 			  ),
 			  FilledButton(
 			    onPressed: () {
-			      final value = double.tryParse(controller.text);
+			      final value =
+				  double.tryParse(valueController.text.trim());
 
 			      if (value != null) {
-				Navigator.pop(context, value);
+				Navigator.pop(
+				  context,
+				  (
+				    value,
+				    descriptionController.text.trim().isEmpty
+				        ? null
+				        : descriptionController.text.trim(),
+				  ),
+				);
 			      }
 			    },
 			    child: const Text('Add'),
@@ -109,10 +133,13 @@ class NumberTrackerScreen extends StatefulWidget {
 		  if (result == null) return;
 
 		  setState(() {
-		    _currentValue += result;
+		    _currentValue += result.$1;
 		  });
 
 		  await _saveSettings();
+
+		  // Description will be stored once we implement
+		  // the Number Entry log.
 		}
 	  
 	  Future<void> _setGoal() async {
@@ -162,9 +189,12 @@ class NumberTrackerScreen extends StatefulWidget {
 				  onPressed: () {
 				    final text = controller.text.trim();
 
-				    final value = text.isEmpty
-					? _dailyGoal?.toInt() ?? 0
-					: int.tryParse(text);
+				    if (text.isEmpty) {
+				      Navigator.pop<int?>(context, null);
+				      return;
+				    }
+
+				    final value = int.tryParse(text);
 
 				    if (value != null && value >= 0) {
 				      Navigator.pop(context, value);
@@ -177,14 +207,12 @@ class NumberTrackerScreen extends StatefulWidget {
 		    },
 		  );
 
-		  if (result != null) {
-			  setState(() {
-				  _dailyGoal = result.toDouble();
-				  _unit = unitController.text.trim();
-				});
+		  setState(() {
+			  _dailyGoal = result?.toDouble();
+			  _unit = unitController.text.trim();
+			});
 
 			await _saveSettings();
-			}
 		}
 
 	  @override
@@ -236,81 +264,69 @@ class NumberTrackerScreen extends StatefulWidget {
 		  const SizedBox(height: 8),
 
 		  Text(
-		    '0 / 0',
-		    textAlign: TextAlign.center,
-		    style: Theme.of(context).textTheme.headlineMedium,
-		  ),
+			  _dailyGoal == null
+			      ? (_unit.isEmpty
+				  ? _currentValue.toStringAsFixed(
+				      _currentValue == _currentValue.roundToDouble() ? 0 : 1,
+				    )
+				  : '${_currentValue.toStringAsFixed(_currentValue == _currentValue.roundToDouble() ? 0 : 1)} $_unit')
+			      : (_unit.isEmpty
+				  ? '${_currentValue.toStringAsFixed(_currentValue == _currentValue.roundToDouble() ? 0 : 1)} / ${_dailyGoal!.toStringAsFixed(_dailyGoal == _dailyGoal!.roundToDouble() ? 0 : 1)}'
+				  : '${_currentValue.toStringAsFixed(_currentValue == _currentValue.roundToDouble() ? 0 : 1)} / ${_dailyGoal!.toStringAsFixed(_dailyGoal == _dailyGoal!.roundToDouble() ? 0 : 1)} $_unit'),
+			  textAlign: TextAlign.center,
+			  style: Theme.of(context).textTheme.headlineMedium,
+			),
 
 		  const SizedBox(height: 12),
 
-		  LinearProgressIndicator(
-			  value: 0,
-			),
+		  _dailyGoal == null
+			    ? const LinearProgressIndicator(value: 0)
+			    : LinearProgressIndicator(
+				value: (_currentValue / _dailyGoal!)
+				    .clamp(0.0, 1.0),
+			      ),
 
 		  const SizedBox(height: 32),
 
 		  const Text(
-		    'Current Value',
-		    style: TextStyle(fontWeight: FontWeight.bold),
-		  ),
+			  'Current Value',
+			  style: TextStyle(fontWeight: FontWeight.bold),
+			),
 
-		  const SizedBox(height: 12),
+			const SizedBox(height: 12),
 
-		  Text(
+			Text(
 			  _unit.isEmpty
 			      ? _currentValue.toStringAsFixed(
 				  _currentValue == _currentValue.roundToDouble() ? 0 : 1,
 				)
-			      : '$_currentValue $_unit',
-		    textAlign: TextAlign.center,
-		    style: Theme.of(context).textTheme.displaySmall,
-		  ),
-
-		  const SizedBox(height: 20),
-
-		  Row(
-		    children: [
-
-		      Expanded(
-		        child: FilledButton(
-				  onPressed: () async {
-					  setState(() {
-					    if (_currentValue > 0) {
-					      _currentValue--;
-					    }
-					  });
-
-					  await _saveSettings();
-					},
-				  child: const Text('-'),
-				),
-		      ),
-
-		      const SizedBox(width: 16),
-
-		      Expanded(
-		        child: FilledButton(
-				  onPressed: () async {
-					  setState(() {
-					    _currentValue++;
-					  });
-
-					  await _saveSettings();
-					},
-				  child: const Text('+'),
-				),
-		      ),
-
-		    ],
-		  ),
-
-		  const SizedBox(height: 16),
-
-		  OutlinedButton(
-			  onPressed: _showCustomValueDialog,
-			  child: const Text('Add Custom Value'),
+			      : '${_currentValue.toStringAsFixed(_currentValue == _currentValue.roundToDouble() ? 0 : 1)} $_unit',
+			  textAlign: TextAlign.center,
+			  style: Theme.of(context).textTheme.displaySmall,
 			),
 
+			const SizedBox(height: 20),
+
+			OutlinedButton.icon(
+			  onPressed: _showCustomValueDialog,
+			  icon: const Icon(Icons.add),
+			  label: const Text('Add Entry'),
+			),
+		const SizedBox(height: 32),
+
+		const Text(
+		  "Today's Entries",
+		  style: TextStyle(fontWeight: FontWeight.bold),
+		),
+
+		const SizedBox(height: 8),
+
+		const Center(
+		  child: Text(
+		    'Entry log coming next',
+		    style: TextStyle(color: Colors.grey),
+		  ),
+		),
 		],
 	      ),
 	    ),

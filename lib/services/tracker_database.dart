@@ -9,6 +9,7 @@ import '../models/number_entry.dart';
 import '../models/number_tracker_settings.dart';
 import '../models/time_session.dart';
 import '../models/time_tracker_goal.dart';
+import '../models/checklist_item.dart';
 
 class DuplicateTrackerNameException implements Exception {}
 
@@ -27,6 +28,7 @@ class TrackerDatabase {
 	static const _numberTrackerSettingsTable = 'number_tracker_settings';
 
 	static const _numberEntriesTable = 'number_entries';
+	static const _checklistItemsTable = 'checklist_items';
 
   sqflite.Database? _database;
   Future<sqflite.Database>? _databaseFuture;
@@ -47,7 +49,7 @@ class TrackerDatabase {
     final path = join(documentsPath, _databaseName);
     final openedDatabase = await sqflite.openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _create,
       onUpgrade: _upgrade,
     );
@@ -75,6 +77,7 @@ class TrackerDatabase {
 	await _createTimeTrackerGoalsTable(database);
 	await _createNumberEntriesTable(database);
 	await _createNumberTrackerSettingsTable(database);
+	await _createChecklistItemsTable(database);
   }
 
   Future<void> _upgrade(
@@ -122,6 +125,9 @@ class TrackerDatabase {
     }
     if (oldVersion < 6) {
 	  await _createNumberTrackerSettingsTable(database);
+	}
+	if (oldVersion < 7) {
+	  await _createChecklistItemsTable(database);
 	}
     if (oldVersion < 5) {
 	  await _createNumberEntriesTable(database);
@@ -181,6 +187,20 @@ class TrackerDatabase {
 	      value REAL NOT NULL,
 	      created_at TEXT NOT NULL,
 	      description TEXT
+	    )
+	  ''');
+	}
+	
+	Future<void> _createChecklistItemsTable(
+	  sqflite.Database database,
+	) async {
+	  await database.execute('''
+	    CREATE TABLE $_checklistItemsTable (
+	      id INTEGER PRIMARY KEY AUTOINCREMENT,
+	      tracker_id INTEGER NOT NULL,
+	      title TEXT NOT NULL,
+	      is_completed INTEGER NOT NULL,
+	      date TEXT NOT NULL
 	    )
 	  ''');
 	}
@@ -554,6 +574,72 @@ class TrackerDatabase {
 
 		  return NumberTrackerSettings.fromMap(maps.first);
 		}
+		
+	Future<void> createChecklistItem({
+	  required int trackerId,
+	  required String title,
+	}) async {
+	  await (await database).insert(
+	    _checklistItemsTable,
+	    {
+	      'tracker_id': trackerId,
+	      'title': title,
+	      'is_completed': 0,
+	      'date': _formatDate(DateTime.now()),
+	    },
+	  );
+	}
+	
+	Future<List<ChecklistItem>> getTodayChecklistItems(
+	  int trackerId,
+	) async {
+	  final maps = await (await database).query(
+	    _checklistItemsTable,
+	    where: 'tracker_id = ? AND date = ?',
+	    whereArgs: [
+	      trackerId,
+	      _formatDate(DateTime.now()),
+	    ],
+	    orderBy: 'id ASC',
+	  );
+
+	  return maps.map(ChecklistItem.fromMap).toList();
+	}
+	
+	Future<void> updateChecklistItem(
+		  ChecklistItem item,
+		) async {
+		  await (await database).update(
+		    _checklistItemsTable,
+		    item.toMap(),
+		    where: 'id = ?',
+		    whereArgs: [item.id],
+		  );
+		}
+		
+	Future<void> resetChecklistForToday(
+	  int trackerId,
+	) async {
+	  await (await database).update(
+	    _checklistItemsTable,
+	    {
+	      'is_completed': 0,
+	      'date': _formatDate(DateTime.now()),
+	    },
+	    where: 'tracker_id = ?',
+	    whereArgs: [trackerId],
+	  );
+	}
+		
+	Future<void> deleteChecklistItem(
+	  int itemId,
+	) async {
+	  await (await database).delete(
+	    _checklistItemsTable,
+	    where: 'id = ?',
+	    whereArgs: [itemId],
+	  );
+	}
 
   String _formatDate(DateTime date) {
     final year = date.year.toString().padLeft(4, '0');

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/tracker.dart';
-import '../widgets/weekly_progress_chart.dart';
+import '../widgets/number_weekly_progress_chart.dart';
 import '../models/number_entry.dart';
 import '../widgets/tracker_detail_scaffold.dart';
 
@@ -28,11 +28,12 @@ class NumberTrackerScreen extends StatefulWidget {
 		bool _isLoading = true;
 		Timer? _midnightTimer;
 		List<NumberEntry> _entries = [];
+		bool _showAllEntries = false;
 		
-		final List<Duration> _weeklyProgress = List.filled(
-		  7,
-		  Duration.zero,
-		);
+		final List<double> _weeklyProgress = List.filled(
+			  7,
+			  0,
+			);
 		
 	@override
 	void initState() {
@@ -82,8 +83,7 @@ class NumberTrackerScreen extends StatefulWidget {
 		    total += entry.value;
 		  }
 
-		  _weeklyProgress[DateTime.now().weekday - 1] =
-		      Duration(minutes: total.round());
+		  _weeklyProgress[DateTime.now().weekday - 1] = total;
 
 		  setState(() {
 		    _entries = entries;
@@ -421,46 +421,78 @@ class NumberTrackerScreen extends StatefulWidget {
 		  "Today's Entries",
 		  style: TextStyle(fontWeight: FontWeight.bold),
 		),
-		
-		const SizedBox(height: 24),
-
-		const Text(
-		  'Weekly Progress',
-		  style: TextStyle(fontWeight: FontWeight.bold),
-		),
-
-		const SizedBox(height: 8),
-
-		WeeklyProgressChart(
-		  dailyDurations: _weeklyProgress,
-		  todayIndex: DateTime.now().weekday - 1,
-		),
-
-		const SizedBox(height: 8),
 
 		_entries.isEmpty
 		    ? const Center(
 			child: Text('No entries yet.'),
 		      )
 		    : Column(
-			children: _entries.map((entry) {
-			  return ListTile(
-			    contentPadding: EdgeInsets.zero,
-			    title: Text(
-			      _unit.isEmpty
-				  ? entry.value.toString()
-				  : '${entry.value} $_unit',
-			    ),
-			    subtitle: entry.description == null
-				? null
-				: Text(entry.description!),
-			    trailing: IconButton(
-				  icon: const Icon(Icons.delete),
-				  onPressed: () => _deleteEntry(entry),
+			children: [
+
+			  ...(_showAllEntries
+				  ? _entries
+				  : _entries.take(2))
+			      .map((entry) {
+			    return Column(
+			      children: [
+
+				ListTile(
+				  contentPadding: EdgeInsets.zero,
+				  title: Text(
+				    _unit.isEmpty
+				        ? entry.value.toString()
+				        : '${entry.value} $_unit',
+				  ),
+				  subtitle: entry.description == null
+				      ? null
+				      : Text(entry.description!),
+				  trailing: IconButton(
+				    icon: const Icon(Icons.delete),
+				    onPressed: () => _deleteEntry(entry),
+				  ),
 				),
-			  );
-			}).toList(),
+
+				const Divider(),
+
+			      ],
+			    );
+			  }),
+
+			  if (_entries.length > 2)
+			    Align(
+				  alignment: Alignment.centerLeft,
+				  child: TextButton(
+				onPressed: () {
+				  setState(() {
+				    _showAllEntries = !_showAllEntries;
+				  });
+				},
+				child: Text(
+				  _showAllEntries
+				      ? 'Show Less'
+				      : 'Show All (${_entries.length})',
+				),
+			      ),
+			    ),
+
+			],
 		      ),
+		      const SizedBox(height: 24),
+
+			const Text(
+			  'Weekly Progress',
+			  style: TextStyle(fontWeight: FontWeight.bold),
+			),
+
+			const SizedBox(height: 8),
+
+			NumberWeeklyProgressChart(
+				  dailyValues: _weeklyProgress,
+				  todayIndex: DateTime.now().weekday - 1,
+				  unit: _unit,
+				),
+
+			const SizedBox(height: 8),
 		],
 	      ),
 	    ),

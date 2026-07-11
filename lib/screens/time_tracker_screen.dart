@@ -44,6 +44,7 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
   Timer? _timer;
   bool _isLoading = true;
   bool _isChangingSession = false;
+  bool _showAllSessions = false;
 
   @override
   void initState() {
@@ -290,9 +291,13 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
     final runningSession = _runningSession;
     final goal = _goal;
     final progress = _todayProgress;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    final displayedSessions =
+	    _showAllSessions || _completedSessions.length <= 2
+		? _completedSessions
+		: _completedSessions.take(2).toList();
+    return SingleChildScrollView(
+	  padding: const EdgeInsets.all(16),
+	  child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text('Daily Goal'),
@@ -343,34 +348,56 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
             ),
           ],
           const SizedBox(height: 24),
-          Expanded(
-            child: Column(
+          Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text("Today's Sessions"),
                 const SizedBox(height: 8),
-                Expanded(
-                  child: _completedSessions.isEmpty
-                      ? const Center(child: Text('No sessions yet.'))
-                      : ListView.builder(
-                          itemCount: _completedSessions.length,
-                          itemBuilder: (context, index) {
-                            final session = _completedSessions[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                session.isManual
-                                    ? 'Manual • ${_formatProgress(session.duration)}'
-                                    : '${_formatTime(session.startedAt!)} – ${_formatTime(session.endedAt!)}',
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () => _deleteSession(session),
-                              ),
-                            );
-                          },
-                        ),
-                ),
+                if (_completedSessions.isEmpty)
+			  const Padding(
+			    padding: EdgeInsets.symmetric(vertical: 24),
+			    child: Center(
+			      child: Text('No sessions yet.'),
+			    ),
+			  )
+			else
+			  Column(
+			    children: displayedSessions.map((session) {
+			      return ListTile(
+				contentPadding: EdgeInsets.zero,
+				title: Text(
+				  session.isManual
+				      ? 'Manual • ${_formatProgress(session.duration)}'
+				      : '${_formatTime(session.startedAt!)} – ${_formatTime(session.endedAt!)}',
+				),
+				trailing: IconButton(
+				  icon: const Icon(Icons.delete),
+				  onPressed: () => _deleteSession(session),
+				),
+			      );
+			    }).toList(),
+			  ),
+		  if (_completedSessions.length > 2)
+			  Align(
+			    alignment: Alignment.centerLeft,
+			    child: TextButton.icon(
+			      onPressed: () {
+				setState(() {
+				  _showAllSessions = !_showAllSessions;
+				});
+			      },
+			      icon: Icon(
+				_showAllSessions
+				    ? Icons.keyboard_arrow_up
+				    : Icons.keyboard_arrow_down,
+			      ),
+			      label: Text(
+				_showAllSessions
+				    ? 'Show fewer sessions'
+				    : 'Show all sessions (${_completedSessions.length})',
+			      ),
+			    ),
+			  ),
                 const SizedBox(height: 16),
                 const Text('Weekly Progress'),
                 const SizedBox(height: 8),
@@ -380,7 +407,6 @@ class _TimeTrackerContentState extends State<TimeTrackerContent> {
                 ),
               ],
             ),
-          ),
         ],
       ),
     );
